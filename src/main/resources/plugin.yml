@@ -1,0 +1,4 @@
+name: LoopAPI_1.20.4
+version: '${project.version}'
+main: loopdospru.loopapi_1.LoopAPI_1
+api-version: '1.20'
