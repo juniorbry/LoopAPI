@@ -124,7 +124,7 @@ public class SQLBuilder {
 
     public List<String> getList(String columnName, String id) {
         String csv = getValue(columnName, id, String.class);
-        return csv != null ? Arrays.asList(csv.split(",")) : new ArrayList<>();
+        return csv != null ? Arrays.asList(csv.split(",")) : new ArrayList<String>();
     }
 
     public Location getLocation(String columnName, String id) {

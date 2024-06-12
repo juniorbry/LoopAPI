@@ -1,1 +1,9 @@
+loopdospru\loopapi_1\configapibuilder\ConfigBuilder.class
 loopdospru\loopapi_1\LoopAPI_1.class
+loopdospru\loopapi_1\questionapi\Question.class
+loopdospru\loopapi_1\questionapi\QuestionType.class
+loopdospru\loopapi_1\questionapi\QuestionListener.class
+loopdospru\loopapi_1\builder\ItemBuilder.class
+loopdospru\loopapi_1\questionapi\QuestionEvent.class
+loopdospru\loopapi_1\questionapi\QuestionManager.class
+loopdospru\loopapi_1\commandapi\ViewerStatus.class

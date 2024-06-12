@@ -131,17 +131,6 @@ public abstract class CommandBuilder implements CommandExecutor {
             return new StringBuilder(message.toString().trim());
         }
 
-        public Runnable createTimer(int timer, Runnable event) {
-            return () -> {
-                try {
-                    Thread.sleep(timer * 1000L);
-                    event.run();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            };
-        }
-
         public void sendArrayMessage(CommandSender sender, String... mensagens) {
             for (String mensagem : mensagens) {
                 sender.sendMessage(mensagem);
