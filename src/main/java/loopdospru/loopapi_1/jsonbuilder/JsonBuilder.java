@@ -2,6 +2,10 @@ package loopdospru.loopapi_1.jsonbuilder;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.TextComponent;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.HoverEvent;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -9,19 +13,19 @@ import java.util.List;
 
 public class JsonBuilder {
     private final List<JsonComponent> components;
-    private final JsonMessageType type;
+    private final boolean solo;
 
     private JsonBuilder(JsonMessageType type) {
-        this.type = type;
         this.components = new ArrayList<>();
+        this.solo = (type == JsonMessageType.SOLO);
     }
 
     public static JsonBuilder of(JsonMessageType type) {
         return new JsonBuilder(type);
     }
 
-    public JsonBuilder addMessage(String text) {
-        components.add(new JsonComponent(text));
+    public JsonBuilder addMessage(String message) {
+        components.add(new JsonComponent(message));
         return this;
     }
 
@@ -40,7 +44,7 @@ public class JsonBuilder {
     }
 
     public JsonBuilder nullMessage() {
-        // Just to align with the example, no action needed here
+        components.add(new JsonComponent(""));
         return this;
     }
 
@@ -49,16 +53,40 @@ public class JsonBuilder {
     }
 
     public void send(Player player) {
-        JsonArray jsonArray = new JsonArray();
-        for (JsonComponent component : components) {
-            jsonArray.add(component.toJson());
+        if (solo) {
+            TextComponent textComponent = new TextComponent();
+            for (JsonComponent component : components) {
+                textComponent.addExtra(convertToTextComponent(component));
+            }
+            player.spigot().sendMessage(textComponent);
+        } else {
+            for (JsonComponent component : components) {
+                player.spigot().sendMessage(convertToTextComponent(component));
+            }
+        }
+    }
+
+    private TextComponent convertToTextComponent(JsonComponent component) {
+        JsonObject json = component.toJson();
+        String text = json.get("text").getAsString();
+        TextComponent textComponent = new TextComponent(text);
+
+        if (json.has("clickEvent")) {
+            JsonObject clickEvent = json.getAsJsonObject("clickEvent");
+            String command = clickEvent.get("value").getAsString();
+            textComponent.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command));
         }
 
-        JsonObject jsonMessage = new JsonObject();
-        jsonMessage.add("text", jsonArray);
+        if (json.has("hoverEvent")) {
+            JsonObject hoverEvent = json.getAsJsonObject("hoverEvent");
+            String description = hoverEvent.get("value").getAsString();
+            textComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{new TextComponent(description)}));
+        }
 
-        String jsonString = jsonMessage.toString();
+        return textComponent;
+    }
 
-        player.spigot().sendMessage(net.md_5.bungee.api.chat.TextComponent.fromLegacyText(jsonString));
+    public enum JsonMessageType {
+        SOLO, MULTI
     }
 }

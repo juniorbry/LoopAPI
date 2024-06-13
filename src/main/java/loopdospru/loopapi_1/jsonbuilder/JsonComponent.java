@@ -3,7 +3,7 @@ package loopdospru.loopapi_1.jsonbuilder;
 import com.google.gson.JsonObject;
 
 public class JsonComponent {
-    private String text;
+    private final String text;
     private String command;
     private String description;
 

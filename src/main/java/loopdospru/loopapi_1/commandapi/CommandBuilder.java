@@ -26,7 +26,7 @@ public abstract class CommandBuilder implements CommandExecutor {
         this.command = command;
         this.permission = permission;
         this.interval = interval;
-        registerCommand();
+    //linha 29    registerCommand();
     }
 
     private void registerCommand() {
