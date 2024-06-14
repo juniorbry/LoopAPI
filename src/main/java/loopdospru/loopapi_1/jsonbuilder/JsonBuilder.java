@@ -6,6 +6,7 @@ import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.HoverEvent;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -68,25 +69,57 @@ public class JsonBuilder {
 
     private TextComponent convertToTextComponent(JsonComponent component) {
         JsonObject json = component.toJson();
-        String text = json.get("text").getAsString();
-        TextComponent textComponent = new TextComponent(text);
+        TextComponent textComponent = new TextComponent();
+
+        if (json.has("text")) {
+            String text = json.get("text").getAsString();
+            textComponent.setText(text);
+        }
+
+        if (json.has("color")) {
+            String color = json.get("color").getAsString().toUpperCase();
+            textComponent.setColor(ChatColor.valueOf(color).asBungee());
+        }
+
+        if (json.has("bold")) {
+            boolean bold = json.get("bold").getAsBoolean();
+            textComponent.setBold(bold);
+        }
+
+        if (json.has("italic")) {
+            boolean italic = json.get("italic").getAsBoolean();
+            textComponent.setItalic(italic);
+        }
+
+        if (json.has("underlined")) {
+            boolean underlined = json.get("underlined").getAsBoolean();
+            textComponent.setUnderlined(underlined);
+        }
+
+        if (json.has("strikethrough")) {
+            boolean strikethrough = json.get("strikethrough").getAsBoolean();
+            textComponent.setStrikethrough(strikethrough);
+        }
+
+        if (json.has("obfuscated")) {
+            boolean obfuscated = json.get("obfuscated").getAsBoolean();
+            textComponent.setObfuscated(obfuscated);
+        }
 
         if (json.has("clickEvent")) {
             JsonObject clickEvent = json.getAsJsonObject("clickEvent");
-            String command = clickEvent.get("value").getAsString();
-            textComponent.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, command));
+            String action = clickEvent.get("action").getAsString();
+            String value = clickEvent.get("value").getAsString();
+            textComponent.setClickEvent(new ClickEvent(ClickEvent.Action.valueOf(action.toUpperCase()), value));
         }
 
         if (json.has("hoverEvent")) {
             JsonObject hoverEvent = json.getAsJsonObject("hoverEvent");
-            String description = hoverEvent.get("value").getAsString();
-            textComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new BaseComponent[]{new TextComponent(description)}));
+            String action = hoverEvent.get("action").getAsString();
+            String value = hoverEvent.get("value").getAsString();
+            textComponent.setHoverEvent(new HoverEvent(HoverEvent.Action.valueOf(action.toUpperCase()), new BaseComponent[]{new TextComponent(value)}));
         }
 
         return textComponent;
-    }
-
-    public enum JsonMessageType {
-        SOLO, MULTI
     }
 }

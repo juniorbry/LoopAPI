@@ -37,7 +37,7 @@ public class SQLBuilder {
 
     public void save(Map<String, Object> data, String id) {
         try {
-            StringBuilder insertQuery = new StringBuilder("REPLACE INTO terrenos (");
+            StringBuilder insertQuery = new StringBuilder("REPLACE INTO ").append(dbName).append(" (");
             StringBuilder valuesQuery = new StringBuilder(" VALUES (");
 
             for (String column : columns.keySet()) {
@@ -73,31 +73,20 @@ public class SQLBuilder {
     }
 
     private void createTable() throws SQLException {
-        StringBuilder createTableQuery = new StringBuilder("CREATE TABLE IF NOT EXISTS terrenos (");
+        StringBuilder createTableQuery = new StringBuilder("CREATE TABLE IF NOT EXISTS ").append(dbName).append(" (");
         for (Map.Entry<String, String> entry : columns.entrySet()) {
             createTableQuery.append(entry.getKey()).append(" ").append(entry.getValue()).append(", ");
         }
         createTableQuery.setLength(createTableQuery.length() - 2);  // Remove última vírgula
-        createTableQuery.append(")");
-
+        createTableQuery.append(", PRIMARY KEY(id))"); // Adiciona PRIMARY KEY
         try (Statement statement = connection.createStatement()) {
             statement.execute(createTableQuery.toString());
         }
     }
 
-    private String convertValueToString(Object value) {
-        if (value instanceof List) {
-            return String.join(",", (List<String>) value);
-        } else if (value instanceof Location) {
-            return serializeLocation((Location) value);
-        } else {
-            return value.toString();
-        }
-    }
-
     public List<String> getIds() {
         List<String> ids = new ArrayList<>();
-        String query = "SELECT id FROM terrenos";
+        String query = "SELECT id FROM " + dbName;
         try (Statement statement = connection.createStatement();
              ResultSet resultSet = statement.executeQuery(query)) {
             while (resultSet.next()) {
@@ -110,96 +99,67 @@ public class SQLBuilder {
         return ids;
     }
 
-    public String getString(String columnName, String id) {
-        return getValue(columnName, id, String.class);
+    public String getString(String id, String columnName) {
+        return (String) get(id, columnName);
     }
 
-    public int getInt(String columnName, String id) {
-        return getValue(columnName, id, Integer.class);
+    public int getInt(String id, String columnName) {
+        return (int) get(id, columnName);
     }
 
-    public double getDouble(String columnName, String id) {
-        return getValue(columnName, id, Double.class);
+    public double getDouble(String id, String columnName) {
+        return (double) get(id, columnName);
     }
 
-    public List<String> getList(String columnName, String id) {
-        String csv = getValue(columnName, id, String.class);
-        return csv != null ? Arrays.asList(csv.split(",")) : new ArrayList<String>();
+    public boolean getBoolean(String id, String columnName) {
+        return (boolean) get(id, columnName);
     }
 
-    public Location getLocation(String columnName, String id) {
-        String locString = getValue(columnName, id, String.class);
-        return locString != null ? deserializeLocation(locString) : null;
+    public List<String> getList(String id, String columnName) {
+        return Arrays.asList(((String) get(id, columnName)).split(","));
     }
 
-    private <T> T getValue(String columnName, String id, Class<T> type) {
-        String query = "SELECT " + columnName + " FROM terrenos WHERE id = ?";
+    public Object get(String id, String columnName) {
+        String query = "SELECT " + columnName + " FROM " + dbName + " WHERE id=?";
         try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setString(1, id);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (resultSet.next()) {
-                Object value = resultSet.getObject(columnName);
-                if (type.isInstance(value)) {
-                    return type.cast(value);
-                } else if (type == Integer.class) {
-                    if (value instanceof String) {
-                        if (((String) value).equalsIgnoreCase("true")) {
-                            return type.cast(1);
-                        } else if (((String) value).equalsIgnoreCase("false")) {
-                            return type.cast(0);
-                        } else {
-                            return type.cast(Integer.parseInt((String) value));
-                        }
-                    }
-                } else if (type == Boolean.class) {
-                    if (value instanceof String) {
-                        return type.cast(Boolean.parseBoolean((String) value));
-                    } else if (value instanceof Integer) {
-                        return type.cast((Integer) value != 0);
-                    }
-                }
+                return resultSet.getObject(columnName);
             }
-        } catch (SQLException | ClassCastException | NumberFormatException e) {
-            plugin.getLogger().severe("Erro ao obter valor da coluna: " + columnName);
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Erro ao obter dados da tabela.");
             e.printStackTrace();
         }
         return null;
     }
 
-    public boolean getBoolean(String columnName, String id) {
-        Boolean value = getValue(columnName, id, Boolean.class);
-        return value != null && value;
-    }
-
-    public String serializeLocation(Location location) {
-        World world = location.getWorld();
-        if (world == null) {
-            throw new NullPointerException("O mundo da localização é nulo.");
+    private String convertValueToString(Object value) {
+        if (value instanceof Location) {
+            Location location = (Location) value;
+            return location.getWorld().getName() + ";" + location.getX() + ";" + location.getY() + ";" + location.getZ() + ";" + location.getYaw() + ";" + location.getPitch();
+        } else if (value instanceof List) {
+            List<?> list = (List<?>) value;
+            List<String> stringList = new ArrayList<>();
+            for (Object item : list) {
+                stringList.add(String.valueOf(item));
+            }
+            return String.join(",", stringList);
+        } else {
+            return String.valueOf(value);
         }
-        return world.getName() + "===" + location.getX() + "===" + location.getY() + "===" + location.getZ() + "===" + location.getYaw() + "===" + location.getPitch();
     }
 
-    private Location deserializeLocation(String locString) {
-        String[] parts = locString.split("===");
-        World world = Bukkit.getWorld(parts[0]);
-        if (world == null) {
-            throw new NullPointerException("O mundo da localização não foi encontrado: " + parts[0]);
+    public static void closeConnections() {
+        for (SQLBuilder sql : sqls.values()) {
+            try {
+                if (sql.connection != null && !sql.connection.isClosed()) {
+                    sql.connection.close();
+                }
+            } catch (SQLException e) {
+                Bukkit.getLogger().severe("Erro ao fechar a conexão com o banco de dados.");
+                e.printStackTrace();
+            }
         }
-        return new Location(
-                world,
-                Double.parseDouble(parts[1]),
-                Double.parseDouble(parts[2]),
-                Double.parseDouble(parts[3]),
-                Float.parseFloat(parts[4]),
-                Float.parseFloat(parts[5])
-        );
-    }
-
-    public Connection getConnection() {
-        return connection;
-    }
-
-    public static SQLBuilder getSQL(String dbName) {
-        return sqls.get(dbName);
     }
 }
