@@ -1,11 +1,10 @@
 package loopdospru.loopapi_1.jsonbuilder;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 
@@ -121,5 +120,36 @@ public class JsonBuilder {
         }
 
         return textComponent;
+    }
+
+    public enum JsonMessageType {
+        SOLO, MULTI
+    }
+
+    private static class JsonComponent {
+        private final JsonObject json;
+
+        public JsonComponent(String message) {
+            this.json = new JsonObject();
+            this.json.addProperty("text", message);
+        }
+
+        public void execute(String command) {
+            JsonObject clickEvent = new JsonObject();
+            clickEvent.addProperty("action", "run_command");
+            clickEvent.addProperty("value", command);
+            this.json.add("clickEvent", clickEvent);
+        }
+
+        public void descricao(String description) {
+            JsonObject hoverEvent = new JsonObject();
+            hoverEvent.addProperty("action", "show_text");
+            hoverEvent.addProperty("value", description);
+            this.json.add("hoverEvent", hoverEvent);
+        }
+
+        public JsonObject toJson() {
+            return this.json;
+        }
     }
 }
