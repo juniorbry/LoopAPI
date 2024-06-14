@@ -21,6 +21,7 @@ public class ConfigBuilder {
         this.plugin = plugin;
         this.configFile = new File(plugin.getDataFolder(), fileName);
         this.config = YamlConfiguration.loadConfiguration(configFile);
+        load();
     }
 
     public static ConfigBuilder create(Plugin plugin, String fileName) {
@@ -33,6 +34,7 @@ public class ConfigBuilder {
     public ConfigBuilder addString(String path, String value) {
         if (!config.contains(path)) {
             config.set(path, value);
+            save();
         }
         return this;
     }
@@ -40,6 +42,7 @@ public class ConfigBuilder {
     public ConfigBuilder addInt(String path, int value) {
         if (!config.contains(path)) {
             config.set(path, value);
+            save();
         }
         return this;
     }
@@ -47,6 +50,7 @@ public class ConfigBuilder {
     public ConfigBuilder addDouble(String path, double value) {
         if (!config.contains(path)) {
             config.set(path, value);
+            save();
         }
         return this;
     }
@@ -54,6 +58,7 @@ public class ConfigBuilder {
     public ConfigBuilder addBoolean(String path, boolean value) {
         if (!config.contains(path)) {
             config.set(path, value);
+            save();
         }
         return this;
     }
@@ -61,28 +66,30 @@ public class ConfigBuilder {
     public ConfigBuilder addList(String path, List<?> value) {
         if (!config.contains(path)) {
             config.set(path, value);
+            save();
         }
         return this;
     }
 
-    public String getString(String path) {
-        return config.getString(path);
+    public String getString(String path, String defaultValue) {
+        return config.getString(path, defaultValue);
     }
 
-    public int getInt(String path) {
-        return config.getInt(path);
+    public int getInt(String path, int defaultValue) {
+        return config.getInt(path, defaultValue);
     }
 
-    public double getDouble(String path) {
-        return config.getDouble(path);
+    public double getDouble(String path, double defaultValue) {
+        return config.getDouble(path, defaultValue);
     }
 
-    public boolean getBoolean(String path) {
-        return config.getBoolean(path);
+    public boolean getBoolean(String path, boolean defaultValue) {
+        return config.getBoolean(path, defaultValue);
     }
 
-    public List<?> getList(String path) {
-        return config.getList(path);
+    public List<?> getList(String path, List<?> defaultValue) {
+        List<?> list = config.getList(path);
+        return list != null ? list : defaultValue;
     }
 
     public void load() {
