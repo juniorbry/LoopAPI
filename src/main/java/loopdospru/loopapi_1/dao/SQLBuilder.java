@@ -1,216 +1,156 @@
 package loopdospru.loopapi_1.dao;
 
-import com.google.gson.JsonObject;
-import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.HoverEvent;
-import net.md_5.bungee.api.chat.TextComponent;
-import net.md_5.bungee.api.ChatColor;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.World;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
 import java.sql.*;
 import java.util.*;
 
 public class SQLBuilder {
-    private static final HashMap<String, SQLBuilder> sqls = new HashMap<>();
-    private final Plugin plugin;
-    private final String dbName;
-    private Connection connection;
+    private final String tableName;
     private final Map<String, String> columns = new LinkedHashMap<>();
+    private final Plugin plugin;
 
-    public SQLBuilder(Plugin plugin, String dbName) {
+    public SQLBuilder(Plugin plugin, String tableName) {
         this.plugin = plugin;
-        this.dbName = dbName;
+        this.tableName = tableName;
     }
 
-    public SQLBuilder addColumn(String columnName, String dataType) {
-        columns.put(columnName, dataType);
+    public SQLBuilder addColumn(String name, String type) {
+        columns.put(name, type);
         return this;
     }
 
     public void build() {
-        try {
-            connect();
-            createTable();
+        try (Connection connection = getConnection(); Statement statement = connection.createStatement()) {
+            StringBuilder sql = new StringBuilder("CREATE TABLE IF NOT EXISTS ").append(tableName).append(" (");
+            for (Map.Entry<String, String> entry : columns.entrySet()) {
+                sql.append(entry.getKey()).append(" ").append(entry.getValue()).append(", ");
+            }
+            sql.setLength(sql.length() - 2);
+            sql.append(");");
+            statement.executeUpdate(sql.toString());
         } catch (SQLException e) {
-            plugin.getLogger().severe("Erro ao criar ou inserir nas tabelas.");
             e.printStackTrace();
         }
+    }
+
+    private Connection getConnection() throws SQLException {
+        return DriverManager.getConnection("jdbc:sqlite:" + plugin.getDataFolder() + "/" + tableName + ".db");
     }
 
     public void save(Map<String, Object> data, String id) {
-        try {
-            StringBuilder insertQuery = new StringBuilder("REPLACE INTO " + dbName + " (");
-            StringBuilder valuesQuery = new StringBuilder(" VALUES (");
-
+        try (Connection connection = getConnection()) {
+            StringBuilder sql = new StringBuilder("INSERT OR REPLACE INTO ").append(tableName).append(" (");
+            StringBuilder values = new StringBuilder("VALUES (");
             for (String column : columns.keySet()) {
-                insertQuery.append(column).append(", ");
-                valuesQuery.append("?, ");
+                sql.append(column).append(", ");
+                values.append("?, ");
             }
+            sql.setLength(sql.length() - 2);
+            values.setLength(values.length() - 2);
+            sql.append(") ").append(values).append(");");
 
-            insertQuery.setLength(insertQuery.length() - 2);  // Remove última vírgula
-            valuesQuery.setLength(valuesQuery.length() - 2);  // Remove última vírgula
-
-            insertQuery.append(")").append(valuesQuery).append(")");
-
-            try (PreparedStatement preparedStatement = connection.prepareStatement(insertQuery.toString())) {
+            try (PreparedStatement ps = connection.prepareStatement(sql.toString())) {
                 int index = 1;
                 for (String column : columns.keySet()) {
-                    preparedStatement.setObject(index++, convertValueToString(data.get(column)));
+                    ps.setObject(index++, data.get(column));
                 }
-                preparedStatement.executeUpdate();
+                ps.executeUpdate();
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Erro ao salvar dados na tabela.");
             e.printStackTrace();
         }
     }
 
-    private void connect() throws SQLException {
-        if (connection == null || connection.isClosed()) {
-            String url = "jdbc:sqlite:" + dbName + ".db";
-            connection = DriverManager.getConnection(url);
-            sqls.put(dbName, this);
-            plugin.getLogger().info("Conectado ao banco de dados: " + dbName);
-        }
-    }
-
-    private void createTable() throws SQLException {
-        StringBuilder createTableQuery = new StringBuilder("CREATE TABLE IF NOT EXISTS " + dbName + " (");
-        for (Map.Entry<String, String> entry : columns.entrySet()) {
-            createTableQuery.append(entry.getKey()).append(" ").append(entry.getValue()).append(", ");
-        }
-        createTableQuery.setLength(createTableQuery.length() - 2);  // Remove última vírgula
-        createTableQuery.append(")");
-
-        try (Statement statement = connection.createStatement()) {
-            statement.execute(createTableQuery.toString());
-        }
-    }
-
-    private String convertValueToString(Object value) {
-        if (value == null) {
-            return "";
-        }
-
-        if (value instanceof List) {
-            return String.join(",", (List<String>) value);
-        } else if (value instanceof Location) {
-            return serializeLocation((Location) value);
-        } else {
-            return value.toString();
+    public void delete(String id) {
+        try (Connection connection = getConnection();
+             PreparedStatement ps = connection.prepareStatement("DELETE FROM " + tableName + " WHERE id = ?")) {
+            ps.setString(1, id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 
     public List<String> getIds() {
         List<String> ids = new ArrayList<>();
-        String query = "SELECT id FROM " + dbName;
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(query)) {
-            while (resultSet.next()) {
-                ids.add(resultSet.getString("id"));
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery("SELECT id FROM " + tableName)) {
+            while (rs.next()) {
+                ids.add(rs.getString("id"));
             }
         } catch (SQLException e) {
-            plugin.getLogger().severe("Erro ao obter IDs.");
             e.printStackTrace();
         }
         return ids;
     }
 
-    public String getString(String columnName, String id) {
-        return getValue(columnName, id, String.class);
-    }
-
-    public int getInt(String columnName, String id) {
-        return getValue(columnName, id, Integer.class);
-    }
-
-    public double getDouble(String columnName, String id) {
-        return getValue(columnName, id, Double.class);
-    }
-
-    public List<String> getList(String columnName, String id) {
-        String csv = getValue(columnName, id, String.class);
-        return csv != null ? Arrays.asList(csv.split(",")) : new ArrayList<String>();
-    }
-
-    public Location getLocation(String columnName, String id) {
-        String locString = getValue(columnName, id, String.class);
-        return locString != null ? deserializeLocation(locString) : null;
-    }
-
-    private <T> T getValue(String columnName, String id, Class<T> type) {
-        String query = "SELECT " + columnName + " FROM " + dbName + " WHERE id = ?";
-        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-            preparedStatement.setString(1, id);
-            ResultSet resultSet = preparedStatement.executeQuery();
-            if (resultSet.next()) {
-                Object value = resultSet.getObject(columnName);
-                if (type.isInstance(value)) {
-                    return type.cast(value);
-                } else if (type == Integer.class) {
-                    if (value instanceof String) {
-                        if (((String) value).equalsIgnoreCase("true")) {
-                            return type.cast(1);
-                        } else if (((String) value).equalsIgnoreCase("false")) {
-                            return type.cast(0);
-                        } else {
-                            return type.cast(Integer.parseInt((String) value));
-                        }
-                    }
-                } else if (type == Boolean.class) {
-                    if (value instanceof String) {
-                        return type.cast(Boolean.parseBoolean((String) value));
-                    } else if (value instanceof Integer) {
-                        return type.cast((Integer) value != 0);
-                    }
+    public String getString(String id, String column) {
+        try (Connection connection = getConnection();
+             PreparedStatement ps = connection.prepareStatement("SELECT " + column + " FROM " + tableName + " WHERE id = ?")) {
+            ps.setString(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString(column);
                 }
             }
-        } catch (SQLException | ClassCastException | NumberFormatException e) {
-            plugin.getLogger().severe("Erro ao obter valor da coluna: " + columnName);
+        } catch (SQLException e) {
             e.printStackTrace();
         }
         return null;
     }
 
-    public boolean getBoolean(String columnName, String id) {
-        Boolean value = getValue(columnName, id, Boolean.class);
-        return value != null && value;
-    }
-
-    public String serializeLocation(Location location) {
-        World world = location.getWorld();
-        if (world == null) {
-            throw new NullPointerException("O mundo da localização é nulo.");
+    public List<String> getList(String id, String column) {
+        String data = getString(id, column);
+        if (data != null) {
+            return Arrays.asList(data.split(","));
         }
-        return world.getName() + "===" + location.getX() + "===" + location.getY() + "===" + location.getZ() + "===" + location.getYaw() + "===" + location.getPitch();
+        return Collections.emptyList();
     }
 
-    private Location deserializeLocation(String locString) {
-        String[] parts = locString.split("===");
-        World world = Bukkit.getWorld(parts[0]);
-        if (world == null) {
-            throw new NullPointerException("O mundo da localização não foi encontrado: " + parts[0]);
+    public double getDouble(String id, String column) {
+        try (Connection connection = getConnection();
+             PreparedStatement ps = connection.prepareStatement("SELECT " + column + " FROM " + tableName + " WHERE id = ?")) {
+            ps.setString(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getDouble(column);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-        return new Location(
-                world,
-                Double.parseDouble(parts[1]),
-                Double.parseDouble(parts[2]),
-                Double.parseDouble(parts[3]),
-                Float.parseFloat(parts[4]),
-                Float.parseFloat(parts[5])
-        );
+        return 0.0;
     }
 
-    public Connection getConnection() {
-        return connection;
+    public boolean getBoolean(String id, String column) {
+        try (Connection connection = getConnection();
+             PreparedStatement ps = connection.prepareStatement("SELECT " + column + " FROM " + tableName + " WHERE id = ?")) {
+            ps.setString(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getBoolean(column);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
-    public static SQLBuilder getSQL(String dbName) {
-        return sqls.get(dbName);
+    public int getInt(String id, String column) {
+        try (Connection connection = getConnection();
+             PreparedStatement ps = connection.prepareStatement("SELECT " + column + " FROM " + tableName + " WHERE id = ?")) {
+            ps.setString(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(column);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
     }
 }
