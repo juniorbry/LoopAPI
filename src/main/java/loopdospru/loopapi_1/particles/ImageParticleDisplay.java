@@ -5,40 +5,37 @@ import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.ProtocolManager;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.wrappers.EnumWrappers;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 
-public class ImageParticleDisplay extends JavaPlugin {
+public class ImageParticleDisplay {
 
-    private ProtocolManager protocolManager;
-
-    @Override
-    public void onEnable() {
-        protocolManager = ProtocolLibrary.getProtocolManager();
-    }
-
-    public void readImage(String url, int size, int displayTime, List<Player> players, Location location, ProtocolManager protocolManager) {
-        this.protocolManager = protocolManager;
-        BufferedImage image = null;
-
-        try {
-            image = ImageIO.read(new URL(url));
-        } catch (IOException e) {
-            e.printStackTrace();
+    public static void readImage(String url, int size, int displayTime, List<Player> players, Location location, Plugin plugin) {
+        if (url == null || url.isEmpty()) {
+            System.out.println("URL da imagem é inválido.");
             return;
         }
 
-        if (image == null) {
+        BufferedImage image = null;
+        try {
+            URL imageUrl = new URL(url);
+            image = ImageIO.read(imageUrl);
+
+            if (image == null) {
+                System.out.println("URL não leva para uma imagem válida.");
+                return;
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
             return;
         }
 
@@ -52,9 +49,11 @@ public class ImageParticleDisplay extends JavaPlugin {
             height = image.getHeight();
         }
 
+        ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
+
         int finalHeight = height;
-        int finalWidth = width;
         BufferedImage finalImage = image;
+        int finalWidth = width;
         new BukkitRunnable() {
             int timeLeft = displayTime;
 
@@ -72,37 +71,41 @@ public class ImageParticleDisplay extends JavaPlugin {
                             continue; // Skip transparent pixels
                         }
 
-                        Color color = new Color(rgb, true);
-                        spawnParticle(location.clone().add(x * 0.1, -y * 0.1, 0), color, players);
+                        // Extrair componentes de cor do RGB
+                        int red = (rgb >> 16) & 0xFF;
+                        int green = (rgb >> 8) & 0xFF;
+                        int blue = rgb & 0xFF;
+
+                        // Criar instância de Color com base nos componentes RGB
+                        org.bukkit.Color color = org.bukkit.Color.fromRGB(red, green, blue);
+
+                        spawnParticle(location.clone().add(x * 0.1, -y * 0.1, 0), color, players, protocolManager);
                     }
                 }
 
                 timeLeft--;
             }
-        }.runTaskTimer(this, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, 20L);
     }
 
     private static BufferedImage resizeImage(BufferedImage originalImage, int targetWidth, int targetHeight) {
-        Image resultingImage = originalImage.getScaledInstance(targetWidth, targetHeight, Image.SCALE_DEFAULT);
-        BufferedImage outputImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2d = outputImage.createGraphics();
-        g2d.drawImage(resultingImage, 0, 0, null);
-        g2d.dispose();
-        return outputImage;
+        BufferedImage resizedImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB);
+        java.awt.Graphics2D g2 = resizedImage.createGraphics();
+        g2.drawImage(originalImage, 0, 0, targetWidth, targetHeight, null);
+        g2.dispose();
+        return resizedImage;
     }
 
-    private static void spawnParticle(Location location, Color color, List<Player> players) {
-        ProtocolManager protocolManager = ProtocolLibrary.getProtocolManager();
-
+    private static void spawnParticle(Location location, org.bukkit.Color color, List<Player> players, ProtocolManager protocolManager) {
         PacketContainer packet = protocolManager.createPacket(PacketType.Play.Server.WORLD_PARTICLES);
         packet.getEnumModifier(EnumWrappers.Particle.class, 0).write(0, EnumWrappers.Particle.REDSTONE);
         packet.getBooleans().write(0, true); // Long distance
         packet.getFloat().write(0, (float) location.getX());
         packet.getFloat().write(1, (float) location.getY());
         packet.getFloat().write(2, (float) location.getZ());
-        packet.getFloat().write(3, color.getRed() / 255.0f);
-        packet.getFloat().write(4, color.getGreen() / 255.0f);
-        packet.getFloat().write(5, color.getBlue() / 255.0f);
+        packet.getFloat().write(3, (float) color.getRed() / 255); // Red
+        packet.getFloat().write(4, (float) color.getGreen() / 255); // Green
+        packet.getFloat().write(5, (float) color.getBlue() / 255); // Blue
         packet.getFloat().write(6, 1.0f); // Particle size
         packet.getIntegers().write(0, 0); // Particle count
 
