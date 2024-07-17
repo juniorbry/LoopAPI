@@ -1,5 +1,6 @@
 package loopdospru.loopapi_1.questionapi;
 
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -19,7 +20,7 @@ public class QuestionListener implements Listener {
 
         if (message.equalsIgnoreCase("cancelar")) {
             QuestionBuilder.removeActiveQuestion(player);
-            player.sendMessage("Operação cancelada.");
+            player.sendMessage(ChatColor.RED + "Operação cancelada.");
             event.setCancelled(true);
             return;
         }
@@ -30,14 +31,14 @@ public class QuestionListener implements Listener {
                 event.setCancelled(true);
                 question.getCallback().accept(new QuestionEvent(player, type, "YES"));
                 QuestionBuilder.removeActiveQuestion(player);
-            } else if (message.equalsIgnoreCase("não")) {
+            } else if (message.equalsIgnoreCase("não") || message.equalsIgnoreCase("nao")) {
                 event.setCancelled(true);
                 question.getCallback().accept(new QuestionEvent(player, type, "NO"));
                 QuestionBuilder.removeActiveQuestion(player);
             }
         } else if (type == QuestionType.STRING) {
             if (question.getLimit() > 0 && message.length() > question.getLimit()) {
-                player.sendMessage("Mensagem muito longa. Limite de " + question.getLimit() + " caracteres.");
+                player.sendMessage(ChatColor.RED + "Mensagem muito longa. Limite de " + question.getLimit() + " caracteres.");
                 event.setCancelled(true);
                 return;
             }
@@ -48,7 +49,7 @@ public class QuestionListener implements Listener {
             try {
                 int value = Integer.parseInt(message);
                 if (question.getLimit() > 0 && value > question.getLimit()) {
-                    player.sendMessage("Valor muito alto. Limite de " + question.getLimit() + ".");
+                    player.sendMessage(ChatColor.RED + "Valor muito alto. Limite de " + question.getLimit() + ".");
                     event.setCancelled(true);
                     return;
                 }
@@ -56,14 +57,14 @@ public class QuestionListener implements Listener {
                 question.getCallback().accept(new QuestionEvent(player, type, message));
                 QuestionBuilder.removeActiveQuestion(player);
             } catch (NumberFormatException e) {
-                player.sendMessage("Por favor, insira um número inteiro válido.");
+                player.sendMessage(ChatColor.RED + "Por favor, insira um número inteiro válido.");
                 event.setCancelled(true);
             }
         } else if (type == QuestionType.DOUBLE) {
             try {
                 double value = Double.parseDouble(message);
                 if (question.getLimit() > 0 && value > question.getLimit()) {
-                    player.sendMessage("Valor muito alto. Limite de " + question.getLimit() + ".");
+                    player.sendMessage(ChatColor.RED + "Valor muito alto. Limite de " + question.getLimit() + ".");
                     event.setCancelled(true);
                     return;
                 }
@@ -71,7 +72,7 @@ public class QuestionListener implements Listener {
                 question.getCallback().accept(new QuestionEvent(player, type, message));
                 QuestionBuilder.removeActiveQuestion(player);
             } catch (NumberFormatException e) {
-                player.sendMessage("Por favor, insira um número válido.");
+                player.sendMessage(ChatColor.RED + "Por favor, insira um número válido.");
                 event.setCancelled(true);
             }
         }
